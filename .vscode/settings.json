@@ -1,0 +1,5 @@
+{
+  "python.analysis.autoImportCompletions": true,
+  "python.autoComplete.extraPaths": [],
+  "python.REPL.enableREPLSmartSend": false
+}
