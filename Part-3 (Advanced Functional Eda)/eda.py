@@ -294,7 +294,7 @@ df.head()
 df.groupby("sex")["survived"].mean() #sex variables with their survival rate
 
 def target_summary_with_cat(dataframe, target, categorical_col):
-  print(pd.DataFrame({"TARGET_MEAN": dataframe.groupby(categorical_col)[target].mean(),}))
+  print(pd.DataFrame({"TARGET_MEAN": dataframe.groupby(categorical_col)[target].mean()}))
 
 target_summary_with_cat(df, "survived", "sex")
 
@@ -307,9 +307,20 @@ for col in categorical_cols:
 #### Target Variable Analysis for Numrical Values #######
 #########################################################
 df.groupby("survived")["age"].mean()
+df.groupby("survived").agg({"age":"mean"})
 
-def target_summary_with_cat(dataframe, target, numerical_col):
+def target_summary_with_num(dataframe, target, numerical_col):
   print(pd.DataFrame({"TARGET_MEAN": dataframe.groupby(target)[numerical_col].mean(),}))
 
+##Other way
+def target_summary_with_num(dataframe, target, numerical_col):
+  print(dataframe.groupby(target).agg({numerical_col:"mean"}), end="\n\n\n")
+
+
+
 for col in num_cols:
-  target_summary_with_cat(df, "survived", col)
+  target_summary_with_num(df, "survived", col)
+
+##################################
+#### Correlation Analysis ########
+##################################
