@@ -91,3 +91,6 @@ agg_df.groupby("SEGMENT").agg({"PRICE":["mean","sum","max"]}).head()
 ###Task-8 (Yeni gelen müşterileri sınıflandırıp, ne kadar gelir getirebileceklerini  tahmin ediniz.)
 new_user = "TUR_ANDROID_FEMALE_31_40"
 agg_df[agg_df["customer_level_based"] == new_user]
+
+new_user_2 = "FRA_IOS_FEMALE_31_40"
+agg_df[agg_df["customer_level_based"] == new_user_2]
