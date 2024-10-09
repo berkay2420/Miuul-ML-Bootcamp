@@ -1,4 +1,4 @@
-from itertools import dropwhile
+from itertools import dropwhile, groupby
 from nis import cat
 from tabnanny import check
 from tokenize import String
@@ -9,7 +9,7 @@ from matplotlib import axis, pyplot as plt
 import missingno as msno
 from datetime import datetime
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import learning_curve, train_test_split
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder, StandardScaler, RobustScaler
 from sympy import Q, false
@@ -308,3 +308,169 @@ df[df_scores < th] #outliers
 df[df_scores < th].index
 
 df[df_scores < th].drop(axis=0, labels=df[df_scores < th].index)
+
+###########################
+##### Missing Values ######
+###########################
+
+#### Catching Missing Values ####
+df = load()
+df.head()
+
+df.isnull().values.any()
+
+df.isnull().sum()    
+
+df.notnull().sum()
+
+df.isnull().sum().sum()  
+
+df[df.isnull().any(axis=1)] #Displaying rows with null cells
+
+df[df.notnull().any(axis=1)]
+
+df.isnull().sum().sort_values(ascending=False)
+
+(df.isnull().sum() / df.shape[0] * 100).sort_values(ascending=False)
+
+na_cols = [col  for col in df.columns if df[col].isnull().values.any()]
+
+###
+def missin_values_table(dataframe):
+  na_cols = [col  for col in dataframe.columns if dataframe[col].isnull().values.any()]
+
+  for col in na_cols:
+
+    print(f" Pertence of NA values in {col}:{(dataframe[col].isnull().sum() / dataframe.shape[0] * 100)}")
+    print("###################################")
+
+missin_values_table(df)
+
+def missing_values_table(dataframe, na_name=False):
+  na_cols = [col  for col in dataframe.columns if dataframe[col].isnull().values.any()]
+  n_miss = dataframe[na_cols].isnull().sum().sort_values(ascending= False)
+  ratio = (dataframe[na_cols].isnull().sum() / dataframe.shape[0] * 100).sort_values(ascending=False)
+  missing_df = pd.concat([n_miss, np.round(ratio,2)], axis=1, keys=['n_miss','ratio'])
+  print(missing_df, end="\n")
+
+  if na_name:
+    return na_cols
+  
+missing_values_table(df)
+
+missing_values_table(df, na_name=True)
+
+df.dropna()
+
+df["Age"].fillna(df["Age"].mean())
+
+df.aplly(lambda x: x.fillna(x.mean()), axis=0) #returns erorr
+
+df.apply(lambda x: x.fillna(x.mean()) if x.dtype != 'O' else x, axis=0).head()
+
+dff= df.apply(lambda x: x.fillna(x.mean()) if x.dtype != 'O' else x, axis=0)
+
+df = load()
+df.apply(lambda x: x.fillna(x.mode()[0]) if (x.dtype == 'O' and len(x.unique()) <= 10) else x, axis=0).isnull().sum()
+
+####
+
+df.groupby("Sex")["Age"].mean() 
+
+df["Age"].fillna(df.groupby("Sex")["Age"].transform("mean")).isnull().sum()
+# Filling NA values with mean of their category. 
+# (female age mean and male age mean are different)
+
+df.loc[(df["Age"].isnull()) & (df["Sex"] == "female")].apply(
+                                                              lambda x: x.fillna(df.groupby("Sex")["Age"].transform("mean"))
+                                                              ).head(5)
+
+df.loc[(df["Age"].isnull()) & (df["Sex"] == "female"), "Age"] = df.groupby("Sex")["Age"].mean()["female"]
+
+df.loc[(df["Age"].isnull()) & (df["Sex"] == "male"), "Age"] = df.groupby("Sex")["Age"].mean()["male"]
+
+
+#####
+
+df = load()
+
+cat_cols, num_cols, cat_but_car = grab_cols(df)
+
+num_cols = [col for col in num_cols if col not in "PassengerId"]
+
+dff = pd.get_dummies(df[cat_cols + num_cols], drop_first=True)
+# Convert categorical variable into dummy/indicator variables.
+# Most machine learning models doesn't accept categorica data. These datas needs to be converted into
+# numerical data. For this we use "One-Hot Encoding". One hot encoding is a technique that we use to represent 
+# categorical variables as numerical values in a machine learning model.
+# If there is Male and Female categories, one hot encoding gives 0 and 1. But this way one is superior to the other.
+# For solving this problem one hot makes 2 more columns male and female. Gives 0 to male while female is 1 and gives 
+# 0 to female while male is 1.
+
+dff.head(5)
+
+dff = pd.get_dummies(df[cat_cols + num_cols], columns=['Sex'])
+# 2 more columns "Sex_female"	"Sex_male" created.
+dff.head(5)
+
+#### Variable Standartization ####
+scaler = MinMaxScaler()
+dff = pd.DataFrame(scaler.fit_transform(dff), columns=dff.columns)
+dff.head()
+
+#### kNN Implementation 
+
+# Filling missing value with machine learning
+# Model tries to fill values
+
+from sklearn.impute import KNNImputer
+imputer = KNNImputer(n_neighbors=5)
+dff = pd.DataFrame(imputer.fit_transform(dff), columns=dff.columns)
+dff.head(10)
+
+dff = pd.DataFrame(scaler.inverse_transform(dff), columns=dff.columns)
+# unscale values
+
+df["knn_imputed_age"] = dff["Age"]
+
+df.loc[df["Age"].isnull(), ["Age", "knn_imputed_age"]]
+
+df.head(5)
+
+## Recap ##
+# -Sclaed the data using MinMaxScaler and created new data frame (dff)
+# -With using knn imputer filled NA values with machine learning
+# -Then created "knn_imputed_age" column using "Age" col from dff
+# -Now age and "knn_imputed_age" can be shown at the same time
+# -This means machine filled NA values 
+
+### Examining Missing Data ####
+
+msno.bar(df) #showing integer count in each col
+plt.show()
+
+msno.matrix(df)
+plt.show()
+
+msno.heatmap(df)
+plt.show()
+
+#############################
+
+missing_values_table(df)
+na_cols = missing_values_table(df, na_name= True)
+
+### Trying to find cause of survival rate
+
+def missing_vs_target(dataframe, target, na_columns):
+  temp_df = dataframe.copy()
+  for col in na_columns:
+    temp_df[col + '_NA_FLAG'] = np.where(temp_df[col].isnull(),1,0) 
+    # returns 0 or 1 if col have NA values 
+  na_flags = temp_df.loc[:, temp_df.columns.str.contains("_NA_")].columns
+  for col in na_flags:
+    print(pd.DataFrame({"TARGET_MEAN": temp_df.groupby(col)[target].mean(),
+                        "Count": temp_df.groupby(col)[target].count()}), end="\n\n\n")
+    
+
+missing_vs_target(df, "Survived", na_cols)
