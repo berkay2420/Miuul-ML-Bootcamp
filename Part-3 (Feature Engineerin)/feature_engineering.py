@@ -1,3 +1,4 @@
+from itertools import dropwhile
 from nis import cat
 from tabnanny import check
 from tokenize import String
@@ -188,3 +189,122 @@ age_index = grab_outliers(df, "Age", index=True)
 df.loc[age_index, "Age"]
 
 df.iloc[age_index]  # outlier rows from age index
+
+#### Deleting Outliers ####
+low, up = outlier_tresholds(df, "Fare")
+df.shape
+
+df[~((df["Fare"] < low)|(df["Fare"] > up))].shape # normal ones NOT OUTLIERS
+
+###
+def remove_outlier(dataframe, col_name):
+  low_limit, up_limit = outlier_tresholds(dataframe, col_name)
+  df_without_outliers = dataframe[~((dataframe[col_name] < low_limit)|(dataframe[col_name] > up_limit))]
+  return df_without_outliers
+
+cat_cols, num_cols, cat_but_car = grab_cols(df)
+
+num_cols = [col for col in num_cols if col not in "PassangerId"]
+
+df.shape
+
+for col in num_cols:
+  new_df = remove_outlier(df, col)
+
+df.shape[0] - new_df.shape[0]
+
+#### Re-assignment with tresholds ####
+
+low, up = outlier_tresholds(df, "Fare")
+
+df[((df["Fare"] < low)|(df["Fare"] > up))]["Fare"]
+
+####
+df.loc[((df["Fare"] < low)|(df["Fare"] > up)), "Fare" ]
+
+df.loc[(df["Fare" > up], "Fare")] = up # up limitinden büyük olanları up değeri ile değiştirdik. 
+                                       # yani örneğin 100den büyük olan tüm değerleri 100 yaptık
+  
+def replace_with_tresholds(dataframe, variable):
+  low_limit, up_limit = outlier_tresholds(dataframe, variable)
+  dataframe.loc[(dataframe[variable] > up_limit), variable] = up_limit
+  dataframe.loc[(dataframe[variable] < low_limit), variable] = low_limit
+
+df = load()
+
+cat_cols, num_cols, cat_but_car = grab_cols(df)
+
+num_cols = [col for col in num_cols if col not in "PassangerId"]
+
+df.shape
+
+for col in num_cols:
+  print(col, check_outlier(df, col))
+
+
+for col in num_cols:
+  replace_with_tresholds(df, col)
+
+for col in num_cols:
+  print(col, check_outlier(df, col))
+  ## outliers have been deleted
+
+#### Recap ####
+df = load()
+
+outlier_tresholds(df, "Age" ) #Finding outlier threshold for variable
+check_outlier(df, "Age") # checking if there is ant outlier in variable
+grab_outliers(df, "Age", index=True) # displaying outliers 
+
+df_without_outliers = remove_outlier(df, "Age").shape #outliers removed version of database
+
+replace_with_tresholds(df, "Age") #replacing outliers with threshold values
+
+##################################
+##### Local Outlier Factor ######
+##################################
+df = sns.load_dataset("diamonds")
+df = df.select_dtypes(["int64","float64"])
+df = df.dropna()
+df.head()
+
+for col in df.columns:
+  print(col, check_outlier(df, col ))
+
+
+low, up = outlier_tresholds(df, "carat")
+
+df[((df["carat"] < low) | (df["carat"] > up))].shape
+
+###
+clf = LocalOutlierFactor(n_neighbors=20) #Unsupervised Outlier Detection using the Local Outlier Factor (LOF).
+# By comparing the local density of a sample to the local densities of its neighbors, 
+# one can identify samples that have a substantially lower density than their neighbors. 
+# These are considered outliers.
+# Works on every column every data
+
+
+
+clf.fit_predict(df)
+
+df_scores = clf.negative_outlier_factor_ #Lower values indicate that the point is considered more of an outlier.
+df_scores[0:5]
+# df_scores = -df_scores
+
+np.sort(df_scores)[0:5]
+
+scores = pd.DataFrame(np.sort(df_scores))
+scores.plot(stacked=True, xlim=[0,20], style='.-')
+plt.show()
+
+scores = pd.DataFrame(np.sort(df_scores))
+scores.plot(stacked=True, xlim=[0,50], style='.-')
+plt.show()
+
+th = np.sort(df_scores)[3] #treshold
+
+df[df_scores < th] #outliers
+
+df[df_scores < th].index
+
+df[df_scores < th].drop(axis=0, labels=df[df_scores < th].index)
