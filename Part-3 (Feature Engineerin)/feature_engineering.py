@@ -13,7 +13,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import learning_curve, train_test_split
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder, StandardScaler, RobustScaler
-from sympy import Q, false, rational_interpolate
+from sympy import Q, expand, false, rational_interpolate
 
 pd.set_option('display.max_columns',None)
 pd.set_option('display.max_rows',None)
@@ -596,3 +596,136 @@ new_df = rare_encoder(df, 0.001)
 new_df.head(5)
 
 rare_analyser(new_df, "TARGET", cat_cols)
+
+#### Feature Scaling ####
+
+#### Standart Scaler ---> Ortalama bütün değerlerden çıkarılır ve standart sapmaya bölünür. z = (x-u) /s
+
+df = load()
+ss = StandardScaler()
+
+df["Age_Standart_Scaler"] = ss.fit_transform(df[["Age"]])
+
+df.head(5)
+
+#### Robut's Scaler ---> Medyanı çıkar IQR'e böl.
+# Outliers !!!
+
+rs = RobustScaler()
+df["Age_Robutust_Scaler"] = rs.fit_transform(df[["Age"]])
+df.describe().T
+
+#### MinMaxScaler
+mms = MinMaxScaler()
+df["Age_MinMax_Scaer"] = mms.fit_transform(df[["Age"]])
+
+df.head(5)
+
+age_cols = [col for col in df.columns if "Age" in col]
+
+#### Numerical to Categorical (Bining) #####
+df["Age_qcut"] = pd.qcut(df["Age"], 5)
+
+df.head(5)
+
+##################################
+####### Feature Extraction #######
+##################################
+
+#### Binary Features: Flag, Bool, True-False ####
+df = load()
+df.head(5)
+
+df["NEW_CABIN_BOOL"] = df["Cabin"].notnull().astype('int')
+
+df.groupby("NEW_CABIN_BOOL").agg({"Survived": "mean"})
+# Now Cabin data means something
+
+
+df.groupby("NEW_CABIN_BOOL")["Survived"].mean()
+
+#### Testing the extracted feature "New_cabin_bool"
+
+from statsmodels.stats.proportion import proportions_ztest
+
+test_stat, pvalue = proportions_ztest(count=[df.loc[df["NEW_CABIN_BOOL"] == 1, "Survived"].sum(),
+                                             df.loc[df["NEW_CABIN_BOOL"] == 0, "Survived"].sum()],
+                                             
+                                      nobs=[df.loc[df["NEW_CABIN_BOOL"] == 1, "Survived"].shape[0],
+                                             df.loc[df["NEW_CABIN_BOOL"] == 0, "Survived"].shape[0]])
+
+print('Test Stat = %.4f, p-value = %.4f' % (test_stat, pvalue))
+
+# Test Stat = 9.4597, p-value = 0.0000 This means there is a meaningful difference between
+# cabin 0 and cabin 1
+
+df.loc[((df["SibSp"] + df["Parch"] > 0)), "NEW_IS_ALONE"] = "NO"
+#exracted new feature called new is alone. Checking relatives in ship
+
+df.loc[((df["SibSp"] + df["Parch"] == 0)), "NEW_IS_ALONE"] = "YES"
+
+df.head(5)
+
+df.groupby("NEW_IS_ALONE").agg({"Survived": "mean"})
+
+test_stat, pvalue = proportions_ztest(count=[df.loc[df["NEW_IS_ALONE"] == "YES", "Survived"].sum(),
+                                             df.loc[df["NEW_IS_ALONE"] == "NO", "Survived"].sum()],
+                                             
+                                      nobs=[df.loc[df["NEW_IS_ALONE"] == "YES", "Survived"].shape[0],
+                                             df.loc[df["NEW_IS_ALONE"] == "NO", "Survived"].shape[0]])
+
+print('Test Stat = %.4f, p-value = %.4f' % (test_stat, pvalue)) 
+
+#### Feature Extraction from text values ####
+
+df = load()
+df.head(5)
+
+#### Letter Count
+df["NAME_LETTER_COUNT"] = df["Name"].str.len()
+
+df.head(3)
+
+df["NAME_WORD_COUNT"] = df["Name"].apply(lambda x: len(str(x).split(" ")))
+
+####
+df["NEW_NAME_DR"] = df["Name"].apply(lambda x: len([x for x in x.split() if
+                                                      x.startswith("Dr")]))
+
+df.groupby("NEW_NAME_DR").agg({"Survived" : ["mean","count"]})
+
+#### Regex = regular expressions
+df.head(3)
+
+df["NEW_TITLE"] = df.Name.str.extract(' ([A-Za-z]+)\.', expand=False)
+#Starts whith space after capital leter after normal letters end with . (dot)
+
+####
+df[["NEW_TITLE","Survived","Age"]].groupby(["NEW_TITLE"]).agg({"Survived": "mean",
+                                                               "Age":["count","mean"] })
+
+#### Date Featres ####
+dff = pd.read_csv("course_reviews.csv")
+dff.head(3)
+dff.info()
+
+dff["Timestamp"] = pd.to_datetime(dff["Timestamp"], format="%Y-%m-%d")
+#Timestamp feature was an object we changed it to datetime
+
+dff["Year"] = dff["Timestamp"].dt.year 
+
+####
+from datetime import datetime as date
+
+dff["month_diff_from_today"] =(date.today().year - dff["Timestamp"].dt.year) * 12 + date.today().month - dff["Timestamp"].dt.month
+
+#### Feature Interactions ####
+df = load()
+df.head(3)
+
+df["NEW_AGE_PCLASS"] = df["Age"] * df["Pclass"]
+
+df["NEW_FAMILY_SIZE"] = df["SibSp"] + df["Parch"] + 1
+
+#### new col creation with loc
+df.loc[(df["Sex"] == 'male' & (df["Age"] <= 21), "NEW_SEX_CAT")] = "youngmale"
