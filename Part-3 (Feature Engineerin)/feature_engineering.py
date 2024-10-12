@@ -1,6 +1,7 @@
 from itertools import dropwhile, groupby
 from nis import cat
 from tabnanny import check
+from tkinter.ttk import LabeledScale
 from tokenize import String
 import numpy as np
 import pandas as pd
@@ -12,7 +13,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import learning_curve, train_test_split
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder, StandardScaler, RobustScaler
-from sympy import Q, false
+from sympy import Q, false, rational_interpolate
 
 pd.set_option('display.max_columns',None)
 pd.set_option('display.max_rows',None)
@@ -439,7 +440,7 @@ df.head(5)
 
 ## Recap ##
 # -Sclaed the data using MinMaxScaler and created new data frame (dff)
-# -With using knn imputer filled NA values with machine learning
+# -Filled NA values with using knn imputer and machine learning
 # -Then created "knn_imputed_age" column using "Age" col from dff
 # -Now age and "knn_imputed_age" can be shown at the same time
 # -This means machine filled NA values 
@@ -474,3 +475,124 @@ def missing_vs_target(dataframe, target, na_columns):
     
 
 missing_vs_target(df, "Survived", na_cols)
+
+
+#######################################################################
+#### Encoding (Label Encoding, One-Hot Encoding, Rare Encoding) #######
+#######################################################################
+
+##### Label Encoding & Binary Encoding ######
+
+df = sns.load_dataset('titanic')
+df.head(5)
+df["sex"].head()
+
+le = LabelEncoder()
+le.fit_transform(df["sex"])[0:5] # gives 0 and 1 in alphetical order
+
+le.inverse_transform([0,1]) #shows what 0 and 1 means 
+
+def label_encoder(dataframe, binary_col):
+  labelencoder = LabelEncoder()
+  dataframe[binary_col] = labelencoder.fit_transform(dataframe[binary_col])
+  return dataframe
+
+df = load()
+df.head(5)
+
+binary_cols = [col for col in df.columns if df[col].dtype not in [int,float] and df[col].nunique() == 2]
+
+for col in binary_cols:
+  label_encoder(df, col)  #female and male encoded as 0 and 1 
+
+df.head(5)
+
+df = load_application_train()
+df.shape
+df.head(5)
+
+binary_cols = [col for col in df.columns if df[col].dtype not in [int,float] and
+               df[col].nunique() == 2]
+
+for col in binary_cols:
+  label_encoder(df, col)  #fills NA values with 2 
+
+df[binary_cols].head(5)
+
+##### One-Hot Encoding #####
+df = load()
+df.head(5)
+df["Embarked"].value_counts()
+
+pd.get_dummies(df, columns=["Embarked"]).head(5) # C, Q ,S
+#the original "Embarked" column is replaced by the new dummy variables
+
+pd.get_dummies(df, columns=["Embarked"], drop_first=True).head(5) #without firs category Q, S
+
+pd.get_dummies(df, columns=["Embarked"], dummy_na=True).head(5)
+# new Embarked_nan column
+
+def one_hot_encoder(dataframe, categorical_cols, drop_first=True):
+  dataframe = pd.get_dummies(dataframe, columns=categorical_cols, drop_first=drop_first)
+  return dataframe
+
+cat_cols, num_cols, cat_but_car = grab_cols(df)
+
+ohe_cols = [col for col in df.columns if 10>= df[col].nunique() >2 ] #one hot encoding cols
+
+one_hot_encoder(df, ohe_cols).head(5)
+
+##### Rare Encoding #####
+# Using high frequency categories instead of using every category makes more sense
+# Some categoris is just rare to be considered valuable
+
+df = load_application_train()
+df["NAME_EDUCATION_TYPE"].value_counts()
+
+cat_cols, num_cols, cat_but_car = grab_cols(df)
+
+#####
+def cat_summary(dataframe, col_name, plot=False):
+  print(pd.DataFrame({col_name: dataframe[col_name].value_counts(),
+                      "Ratio":100 *  dataframe[col_name].value_counts() / len(dataframe)}))
+  print("##########################")
+  if plot:
+    sns.countplot(x=dataframe[col_name], data=dataframe)
+    plt.show()
+
+for col in cat_cols:
+  cat_summary(df, col)
+
+
+df["NAME_INCOME_TYPE"].value_counts() / len(df)
+
+df.groupby("NAME_INCOME_TYPE")["TARGET"].mean() # 0-1, 1 means can't pay for loan
+
+#####
+def rare_analyser(dataframe, target, cat_cols):
+  for col in cat_cols:
+    print(col, ":", len(dataframe[col].value_counts()))
+    print(pd.DataFrame({"COUNT": dataframe[col].value_counts(),
+                       "RATIO": dataframe[col].value_counts() / len(dataframe),
+                       "TARGET_MEAN": dataframe.groupby(col)[target].mean()}), end="\n\n\n")
+
+rare_analyser(df, "TARGET", cat_cols)
+
+#####
+def rare_encoder(dataframe, rare_perc):
+  temp_df = dataframe.copy()
+
+  rare_columns = [col for col in temp_df.columns if temp_df[col].dtypes == 'O'
+                  and (temp_df[col].value_counts() / len(dataframe) < rare_perc).any(axis=None)]
+
+  for var in rare_columns:
+    tmp = temp_df[var].value_counts() / len(temp_df)
+    rare_labels = tmp[tmp< rare_perc].index
+    temp_df[var] = np.where(temp_df[var].isin(rare_labels), 'Rare', temp_df[var]) #condition , do this, else 
+
+  return temp_df    
+
+new_df = rare_encoder(df, 0.001)
+new_df.head(5)
+
+rare_analyser(new_df, "TARGET", cat_cols)
