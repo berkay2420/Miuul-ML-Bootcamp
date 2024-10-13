@@ -728,4 +728,7 @@ df["NEW_AGE_PCLASS"] = df["Age"] * df["Pclass"]
 df["NEW_FAMILY_SIZE"] = df["SibSp"] + df["Parch"] + 1
 
 #### new col creation with loc
-df.loc[(df["Sex"] == 'male' & (df["Age"] <= 21), "NEW_SEX_CAT")] = "youngmale"
+df.loc[(df["Sex"] == 'male') & (df["Age"] <= 21), "NEW_SEX_CAT"] = "youngmale"
+
+df.loc[(df["Sex"] == 'male') & (df["Age"] > 21) & (df["Age"] <= 50), "NEW_SEX_CAT"] = "maturemale"
+ 
