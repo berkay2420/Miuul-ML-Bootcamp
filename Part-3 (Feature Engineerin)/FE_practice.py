@@ -1,3 +1,4 @@
+from logging.handlers import DatagramHandler
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -93,7 +94,7 @@ for col in num_cols:
 for col in num_cols:
   print(df[col].head(2))
 
-
+### finding outliers
 def check_for_outliers(dataframe, variable):
   q1 = dataframe[variable].quantile(0.25)
   q3 = dataframe[variable].quantile(0.75)
@@ -121,27 +122,91 @@ for col in num_cols:
     print(f"{col} doesn't have missing values")
 
 
-def get_high_correlated_cols(dataframe, plot=False, corr_th= 0.90):
-  corr = dataframe.corr()
-  cor_matrix = corr.abs()
-  upper_triangle_matrix = cor_matrix.where(np.triu(np.ones(cor_matrix.shape), k=1).astype(np.bool))
-  high_corr_cols = [col for col in upper_triangle_matrix.columns if any(upper_triangle_matrix[col]>corr_th)]
-
-  return high_corr_cols
-
-high_correlated_cols = get_high_correlated_cols(df)
-
 #### deleting outliers
 
 def get_outlier_limits(dataframe, col):
   q1 = dataframe[col].quantile(0.25)
   q3 = dataframe[col].quantile(0.75)
   iqr = q3 - q1
-  low_limit = q1 - 1,5 * iqr
-  up_limit = q3 + 1,5 * iqr
+  low_limit = q1 - 1.5 * iqr
+  up_limit = q3 + 1.5 * iqr
   return low_limit, up_limit
 
 
 def delete_outliers(dataframe, col):
   low_limit, up_limit = get_outlier_limits(dataframe, col) 
-  dataframe[col] = dataframe[~((dataframe[col] < low_limit) & (dataframe[col] > up_limit))]
+  df_without_outliers = dataframe[~((dataframe[col] < low_limit)|(dataframe[col] > up_limit))]
+  return df_without_outliers
+
+def replace_outliers(dataframe, col):
+  low_limit, up_limit = get_outlier_limits(dataframe, col) 
+  dataframe[dataframe[col] < low_limit] = low_limit
+  dataframe.loc[(dataframe[col] >  up_limit), col] = up_limit
+  dataframe.loc[(dataframe[col] <  low_limit), col] = low_limit
+
+
+
+for col in num_cols:
+  df = delete_outliers(df, col)
+
+
+for col in num_cols:
+  if check_for_outliers(df, col):
+    print(f"{col} col have outliers")
+  else:
+    for col in num_cols:
+      replace_outliers(df, col)
+
+for col in num_cols:
+  if check_for_outliers(df, col):
+    print(f"{col} col have outliers")
+  else:
+    print(f"{col} doesn't have outliers")
+
+
+#### correlation analysis
+
+corr = df[num_cols].corr()
+
+sns.set(rc={'figure.figsize':(12,12)})
+sns.heatmap(corr, cmap="RdBu")
+plt.show()
+
+#### Missing values
+
+df.isnull().sum().sort_values(ascending=False) #Shows no missing values
+
+df.loc[(df["Insulin"] == 0)].head(5) 
+# Insulin must be bigger than 0 this means NA values have filled with 0s in this col
+
+df.loc[(df["Glucose"] == 0) ].head(5)
+
+df.loc[(df["DiabetesPedigreeFunction"] == 0)].head(3)
+
+### Replacing 0s to Nan
+insulin_zero_index_list = df.index[df["Insulin"] == 0].to_list()
+
+df.loc[insulin_zero_index_list, "Insulin"] = np.nan
+
+df.loc[(df["Insulin"] == 0)].head(5) 
+
+### functional version
+
+def check_for_zeros(dataframe, col):
+  if (dataframe[col] == 0).any():
+    return True
+  else:
+    return False
+  
+for col in num_cols:
+  if check_for_zeros(df,col):
+    print(f"{col} have unnecessary 0s")
+  else:
+    print(f"{col} filled normally")
+
+def replace_zeros(dataframe, col):
+  zero_index_list = dataframe.index[df[col] == 0].to_list()
+  dataframe.loc[zero_index_list, col] = np.nan
+
+for col in num_cols:
+  replace_zeros(df, col)
