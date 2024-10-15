@@ -1,15 +1,17 @@
 from logging.handlers import DatagramHandler
+from msilib.schema import RadioButton
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib import axis, pyplot as plt
 import missingno as msno
 from datetime import datetime
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import learning_curve, train_test_split
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder, StandardScaler, RobustScaler
 from sympy import lowergamma
+import test
 
 pd.set_option('display.max_columns',None)
 pd.set_option('display.max_rows',None)
@@ -18,7 +20,7 @@ pd.set_option('display.width',500)
 
 
 df = pd.read_csv("diabetes.csv")
-df.head(3)
+df.head(5)
 df.info
 df.shape
 df.columns
@@ -204,9 +206,90 @@ for col in num_cols:
   else:
     print(f"{col} filled normally")
 
-def replace_zeros(dataframe, col):
-  zero_index_list = dataframe.index[df[col] == 0].to_list()
-  dataframe.loc[zero_index_list, col] = np.nan
+def replace_zeros_with_average(dataframe, col):
+  # if dataframe has 0s instead of NaNs
+  #zero_index_list = dataframe.index[df[col] == 0].to_list()
+  index_list = dataframe.index[df[col].isna()].to_list()
+  dataframe.loc[index_list, col] = dataframe[col].mean()
+
+
+df.head(10)
 
 for col in num_cols:
-  replace_zeros(df, col)
+  replace_zeros_with_average(df, col)
+
+### Replacing NaNs with mean
+
+df["Insulin"].fillna(df["Insulin"].mean())
+df["Insulin"].head(3)
+
+df["BMI"].mean() #average is 32
+
+df.loc[(df["BMI"] > 32), "MORE_THAN_BMI_AVERAGE"] = "Yes"
+
+df.loc[(df["BMI"] < 32), "MORE_THAN_BMI_AVERAGE"] = "No"
+
+df.head(3)
+
+df["Pregnancies"].value_counts()
+
+df["Age"].value_counts()
+
+df.loc[(df["Age"] < 24), "NEW_AGE_CAT"] = "young"
+
+df.loc[(df["Age"] > 24) & (df["Age"] < 45), "NEW_AGE_CAT"] = "adult"
+
+df.loc[(df["Age"] > 45), "NEW_AGE_CAT"] = "old"
+
+df["DiabetesPedigreeFunction"].value_counts()
+
+
+df.loc[(df["BMI"] > 19) & (df["BMI"] < 25), "OPTIMAL_BMI"] = "yes"
+
+df.loc[(df["BMI"] < 19) , "OPTIMAL_BMI"] = "no"
+
+df.loc[(df["BMI"]  > 25) , "OPTIMAL_BMI"] = "no"
+
+df.groupby("Insulin")["Outcome"].mean()
+
+
+#### Encoding 
+
+def one_hot_encoder(dataframe, categorical_cols, drop_first=True):
+  dataframe = pd.get_dummies(dataframe, columns=categorical_cols, drop_first=drop_first)
+  return dataframe
+
+cat_cols, num_cols, cat_but_car = grab_cols(df)
+
+ohe_cols = [col for col in df.columns if 10>= df[col].nunique() >= 2 ]
+
+ohe_cols = [col for col in ohe_cols if col not in "Outcome"]
+
+
+one_hot_encoder(df, ohe_cols).head(5)
+
+### scaling
+
+cat_cols
+
+df = pd.get_dummies(df[num_cols + cat_cols], drop_first=True)
+
+df.head(5)
+
+scaler = StandardScaler()
+df[num_cols] = scaler.fit_transform(df[num_cols])
+df.head(30)
+
+### model
+df['Outcome'] = df['Outcome'].astype(int)
+y = df["Outcome"]
+print(y.unique())
+X = df.drop(["Outcome"], axis=1)
+
+X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.30, random_state=17)
+
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+
+rf_model = RandomForestClassifier(random_state=46).fit(X_train, y_train)
+y_pred = rf_model.predict(X_test)
+accuracy_score(y_pred, y_test)

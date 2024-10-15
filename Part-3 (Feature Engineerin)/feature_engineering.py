@@ -731,4 +731,4 @@ df["NEW_FAMILY_SIZE"] = df["SibSp"] + df["Parch"] + 1
 df.loc[(df["Sex"] == 'male') & (df["Age"] <= 21), "NEW_SEX_CAT"] = "youngmale"
 
 df.loc[(df["Sex"] == 'male') & (df["Age"] > 21) & (df["Age"] <= 50), "NEW_SEX_CAT"] = "maturemale"
- 
+
