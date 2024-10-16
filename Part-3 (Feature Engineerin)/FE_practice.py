@@ -208,9 +208,9 @@ for col in num_cols:
 
 def replace_zeros_with_average(dataframe, col):
   # if dataframe has 0s instead of NaNs
-  #zero_index_list = dataframe.index[df[col] == 0].to_list()
+  zero_index_list = dataframe.index[df[col] == 0].to_list()
   index_list = dataframe.index[df[col].isna()].to_list()
-  dataframe.loc[index_list, col] = dataframe[col].mean()
+  dataframe.loc[zero_index_list, col] = dataframe[col].mean()
 
 
 df.head(10)
@@ -266,11 +266,13 @@ ohe_cols = [col for col in df.columns if 10>= df[col].nunique() >= 2 ]
 ohe_cols = [col for col in ohe_cols if col not in "Outcome"]
 
 
-one_hot_encoder(df, ohe_cols).head(5)
+df = one_hot_encoder(df, ohe_cols).head(5)
 
 ### scaling
 
-cat_cols
+
+
+cat_cols, num_cols, cat_but_car = grab_cols(df)
 
 df = pd.get_dummies(df[num_cols + cat_cols], drop_first=True)
 
@@ -281,9 +283,7 @@ df[num_cols] = scaler.fit_transform(df[num_cols])
 df.head(30)
 
 ### model
-df['Outcome'] = df['Outcome'].astype(int)
 y = df["Outcome"]
-print(y.unique())
 X = df.drop(["Outcome"], axis=1)
 
 X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.30, random_state=17)
