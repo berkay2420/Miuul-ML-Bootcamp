@@ -26,6 +26,7 @@ df.describe()
 
 df.isnull().values.any()
 df.isnull().sum()
+df.isnull().sum()
 
 def grab_cols(dataframe, cat_th=10, car_th=20):
 
@@ -159,3 +160,32 @@ check_for_outliers(df, "MonthlyCharges")
 df.isnull().values.any()
 
 ### correlation analysis 
+
+cor_matrix = df.corr().abs()
+
+upper_triangle_matrix = cor_matrix.where(np.triu(np.ones(cor_matrix.shape), k=1).astype(np.bool))
+
+drop_list = [col for col in upper_triangle_matrix.columns if any(upper_triangle_matrix[col]>0.90)]
+
+cor_matrix[drop_list]
+
+#### new variable creations
+
+df["tenure"].max()
+
+
+df.loc[(df["tenure"] >=0) & (df["tenure"]<=12), "NEW_TENURE_YEAR"] = "0-1_YEAR"
+df.loc[(df["tenure"] >12) & (df["tenure"]<=24), "NEW_TENURE_YEAR"] = "1-2_YEAR"
+df.loc[(df["tenure"] >24) & (df["tenure"]<=36), "NEW_TENURE_YEAR"] = "2-3_YEAR"
+df.loc[(df["tenure"] >36) & (df["tenure"]<=48), "NEW_TENURE_YEAR"] = "3-4_YEAR"
+df.loc[(df["tenure"] >48) & (df["tenure"]<=60), "NEW_TENURE_YEAR"] = "4-5_YEAR"
+df.loc[(df["tenure"] >60) & (df["tenure"] <=72), "NEW_TENURE_YEAR"] = "5-6_YEAR"
+
+cat_cols
+
+df["NEW_ENGAGED"] = df["Contract"].apply(lambda x: 1 if x in ["One year", "Two year"] else 0)
+ 
+df["NEW_Young_Not_Enagaged"] = df.apply(lambda x: 1 if (x["NEW_ENGAGED"] == 0) and (x["SeniorCitizen"] == 0) else 0, axis=1 )
+# axis=1 means work on rows
+
+df.head(12)
