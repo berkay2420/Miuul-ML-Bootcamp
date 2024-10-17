@@ -293,3 +293,4 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 rf_model = RandomForestClassifier(random_state=46).fit(X_train, y_train)
 y_pred = rf_model.predict(X_test)
 accuracy_score(y_pred, y_test)
+
