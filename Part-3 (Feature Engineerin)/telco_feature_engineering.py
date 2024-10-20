@@ -363,3 +363,23 @@ print(f"F1 Score:{round(f1_score(y_pred, y_test), 4)}")
 print(f"Auc: {round(roc_auc_score(y_pred, y_test),4 )}")
 
 
+
+###
+def plot_feature_importance(importance, names, model_type):
+  feature_importance = np.array(importance)
+  feature_names = np.array(names)
+
+  data = {'feature_names': feature_names, 'feature_importance': feature_importance}
+  f1_df = pd.DataFrame(data)
+
+  f1_df.sort_values(by=['feature_importance'], ascending=False, inplace=True)
+
+  plt.figure(figsize=(15,10))
+  sns.barplot(x=f1_df['feature_importance'], y=f1_df['feature_names'])
+
+  plt.title(model_type + 'FEATURE_IMPORTANCE')
+  plt.xlabel('FEATURE_IMPORTANCE')
+  plt.ylabel('FETURE_NAMES')
+  plt.show()
+
+plot_feature_importance(cat_boost_model.get_feature_importance(), X.columns, 'CATBOOST')
