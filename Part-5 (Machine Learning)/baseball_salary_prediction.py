@@ -3,7 +3,7 @@ import numpy as np
 from requests import get
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.linear_model import Log, LogisticRegression
+from sklearn.linear_model import LinearRegression, Log, LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import cross_validate, learning_curve, train_test_split
 from sklearn.neighbors import LocalOutlierFactor
@@ -122,7 +122,7 @@ def target_summary_with_numerical(dataframe, numerical_col, target):
   print(pd.DataFrame({"TARGET_MEAN": dataframe.groupby(numerical_col)[target].mean()}), end="\n\n\n")
 
 for col in num_cols:
-  target_summary_with_cat(df, col, "Salary")
+  target_summary_with_numerical(df, col, "Salary")
 
 ### Outlier Analysis
 
@@ -146,8 +146,8 @@ for col in num_cols:
 
 def replace_outliers(dataframe, col):
   low, up = get_outlier_tresholds(dataframe, col)
-  dataframe[dataframe[col] > up ] = up
-  dataframe[dataframe[col] < low] = low
+  dataframe.loc[dataframe[col] > up, col ] = up
+  dataframe.loc[dataframe[col] < low, col] = low
 
 for col in num_cols:
   replace_outliers(df, col)
@@ -173,3 +173,108 @@ advanced_missing_values_table(df)
 df["Salary"].fillna(df["Salary"].median(), inplace=True)
 
 df.isnull().sum()
+
+## Correlation Analysis ##
+df[num_cols].corr()
+f, ax = plt.subplots(figsize=[18,13])
+sns.heatmap(df[num_cols].corr(), annot=True, fmt=".2f", ax=ax, cmap="magma")
+ax.set_title("Correlation Matrix", fontsize=20)
+plt.show()
+
+### Feature Extraction ###
+
+df["NEW_HIT_ACCURACY_RATIO"] = 100 * df["CHits"] / df["CAtBat"]
+
+df.loc[df["NEW_HIT_ACCURACY_RATIO"] < 11, "NEW_HIT_ACCURACY_RATIO_CLASSIFICATIN"] = "0_10 Pertence"
+df.loc[(df["NEW_HIT_ACCURACY_RATIO"] >11)&(df["NEW_HIT_ACCURACY_RATIO"] < 21), "NEW_HIT_ACCURACY_RATIO_CLASSIFICATIN"] = "10_20 Pertence"
+df.loc[(df["NEW_HIT_ACCURACY_RATIO"] >20)&(df["NEW_HIT_ACCURACY_RATIO"] < 31), "NEW_HIT_ACCURACY_RATIO_CLASSIFICATIN"] = "20_30 Pertence"
+
+
+
+df["NEW_HIT_ACCURACY_RATIO_86-87"] = 100 * df["Hits"] / df["AtBat"]
+
+df["NEW_HIT_ACCURACY_RATIO_86-87"].value_counts()
+
+df["NEW_SCORE_CONT_PER_YEAR"] =   df["CRuns"] / df["Years"]
+
+
+df["NEW_SCORE_CONT_PER_YEAR"].value_counts()
+
+df["HmRun"].value_counts()
+
+df.loc[df["HmRun"] <= 5, "NEW_HM_RUN"] = "0_5"
+df.loc[(df["HmRun"] > 5) & (df["HmRun"] <= 15), "NEW_HM_RUN"] = "10_15"
+df.loc[(df["HmRun"] > 15) & (df["HmRun"] <= 20), "NEW_HM_RUN"] = "15_20"
+df.loc[(df["HmRun"] > 20) & (df["HmRun"] <= 25), "NEW_HM_RUN"] = "20_25"
+df.loc[(df["HmRun"] > 25) & (df["HmRun"] <= 30), "NEW_HM_RUN"] = "25_30"
+df.loc[(df["HmRun"] > 30) & (df["HmRun"] <= 35), "NEW_HM_RUN"] = "30_35"
+
+
+df["NEW_WALKS"] = df["Walks"] / df["CWalks"]
+df["NEW_AT_BAT"] =  df["AtBat"] / df["CAtBat"]
+df['NEW_HITS'] = df['Hits'] / df['CHits'] + df['Hits']
+df['NEW_RBI'] = df['RBI'] / df['CRBI']
+
+df.loc[df["NEW_SCORE_CONT_PER_YEAR"] > df["Runs"], "NEW_SCORE_PERFOMANCE"] = "above"
+df.loc[df["NEW_SCORE_CONT_PER_YEAR"] < df["Runs"], "NEW_SCORE_PERFOMANCE"] = "below"
+
+
+# Replace infinite values with NaN, then handle missing values
+df.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+# Check for NaNs
+print(df.isnull().sum())
+
+# Fill or remove any remaining NaNs
+df.fillna(df.median(), inplace=True)
+
+## encoding 
+
+def one_hot_encoder(dataframe, categorical_cols, drop_first=False):
+  dataframe = pd.get_dummies(dataframe, columns=categorical_cols, drop_first=True)
+  return dataframe
+
+cat_cols, num_cols, cat_but_car = grab_cols(df)
+
+df = one_hot_encoder(df, categorical_cols=cat_cols, drop_first=True)
+df.head(3)
+df.isnull().sum()
+
+df["NEW_RBI"].fillna(df["NEW_RBI"].median(), inplace=True)
+## scaling 
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Log, LogisticRegression, LinearRegression
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.model_selection import cross_validate, learning_curve, train_test_split
+
+num_cols = [col for col in num_cols if col not in ["Salary"]]
+scaler = StandardScaler()
+df[num_cols] = scaler.fit_transform(df[num_cols])
+df.head()
+
+### modelig
+y = df["Salary"]
+
+X = df.drop(["Salary"], axis=1)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                    test_size=0.20,
+                                                    random_state=47)
+
+lin_reg_model = LinearRegression().fit(X_train, y_train)
+
+y_pred = lin_reg_model.predict(X_test)
+
+from sklearn.metrics import mean_squared_error
+print(mean_squared_error(y_test, y_pred))
+
+
+from sklearn.metrics import mean_absolute_error
+print(mean_absolute_error(y_test, y_pred))
+
+from sklearn.metrics import r2_score
+print(r2_score(y_test, y_pred))
+
+
+print("root_mean_squared_error:", np.sqrt(mean_absolute_error(y_test, y_pred)))
