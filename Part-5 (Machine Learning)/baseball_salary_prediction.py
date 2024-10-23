@@ -8,6 +8,8 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 from sklearn.model_selection import cross_validate, learning_curve, train_test_split
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder, OneHotEncoder, StandardScaler, RobustScaler
+from sympy import root
+import test
 
 ########################################################
 ##### Diabete Prediction with Logistic Regression ######
@@ -31,6 +33,11 @@ df.count()
 df.describe().T
 
 df.isnull().values.any()
+df.isna().sum()
+df.isnull().sum()
+(df == 0).sum()
+
+df["Salary"] = df["Salary"] * 1000
 
 ### Data Preprocessing ###
 
@@ -117,12 +124,37 @@ def target_summary_with_cat(dataframe, categorical_col, target):
 for col in cat_cols:
   target_summary_with_cat(df, col, "Salary")
 
+
+
 #target analysis for numrical cols
 def target_summary_with_numerical(dataframe, numerical_col, target):
   print(pd.DataFrame({"TARGET_MEAN": dataframe.groupby(numerical_col)[target].mean()}), end="\n\n\n")
 
 for col in num_cols:
   target_summary_with_numerical(df, col, "Salary")
+
+##NA & Missing Values Analysis
+
+def advanced_missing_values_table(dataframe, na_name=False):
+  na_cols = [col  for col in dataframe.columns if dataframe[col].isnull().values.any()]
+  n_miss = dataframe[na_cols].isnull().sum().sort_values(ascending= False)
+  ratio = (dataframe[na_cols].isnull().sum() / dataframe.shape[0] * 100).sort_values(ascending=False)
+  missing_df = pd.concat([n_miss, np.round(ratio,2)], axis=1, keys=['n_miss','ratio'])
+  print(missing_df, end="\n")
+
+  if na_name:
+    return na_cols
+  
+advanced_missing_values_table(df)
+
+
+
+df["Salary"].fillna(df["Salary"].median(), inplace=True)
+
+df.isnull().sum()
+
+
+
 
 ### Outlier Analysis
 
@@ -158,21 +190,6 @@ for col in num_cols:
 
 df.isnull().sum() 
 
-def advanced_missing_values_table(dataframe, na_name=False):
-  na_cols = [col  for col in dataframe.columns if dataframe[col].isnull().values.any()]
-  n_miss = dataframe[na_cols].isnull().sum().sort_values(ascending= False)
-  ratio = (dataframe[na_cols].isnull().sum() / dataframe.shape[0] * 100).sort_values(ascending=False)
-  missing_df = pd.concat([n_miss, np.round(ratio,2)], axis=1, keys=['n_miss','ratio'])
-  print(missing_df, end="\n")
-
-  if na_name:
-    return na_cols
-  
-advanced_missing_values_table(df)
-
-df["Salary"].fillna(df["Salary"].median(), inplace=True)
-
-df.isnull().sum()
 
 ## Correlation Analysis ##
 df[num_cols].corr()
@@ -181,53 +198,71 @@ sns.heatmap(df[num_cols].corr(), annot=True, fmt=".2f", ax=ax, cmap="magma")
 ax.set_title("Correlation Matrix", fontsize=20)
 plt.show()
 
-### Feature Extraction ###
+### Base Model ###
+def one_hot_encoder(dataframe, categorical_cols, drop_first=False):
+  dataframe = pd.get_dummies(dataframe, columns=categorical_cols, drop_first=drop_first)
+  return dataframe
 
-df["NEW_HIT_ACCURACY_RATIO"] = 100 * df["CHits"] / df["CAtBat"]
+cat_cols, num_cols, cat_but_car = grab_cols(df)
 
-df.loc[df["NEW_HIT_ACCURACY_RATIO"] < 11, "NEW_HIT_ACCURACY_RATIO_CLASSIFICATIN"] = "0_10 Pertence"
-df.loc[(df["NEW_HIT_ACCURACY_RATIO"] >11)&(df["NEW_HIT_ACCURACY_RATIO"] < 21), "NEW_HIT_ACCURACY_RATIO_CLASSIFICATIN"] = "10_20 Pertence"
-df.loc[(df["NEW_HIT_ACCURACY_RATIO"] >20)&(df["NEW_HIT_ACCURACY_RATIO"] < 31), "NEW_HIT_ACCURACY_RATIO_CLASSIFICATIN"] = "20_30 Pertence"
+df = one_hot_encoder(df, categorical_cols=cat_cols, drop_first=True)
 
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Log, LogisticRegression, LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score,accuracy_score, classification_report, confusion_matrix, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.model_selection import cross_validate, learning_curve, train_test_split
 
-
-df["NEW_HIT_ACCURACY_RATIO_86-87"] = 100 * df["Hits"] / df["AtBat"]
-
-df["NEW_HIT_ACCURACY_RATIO_86-87"].value_counts()
-
-df["NEW_SCORE_CONT_PER_YEAR"] =   df["CRuns"] / df["Years"]
-
-
-df["NEW_SCORE_CONT_PER_YEAR"].value_counts()
-
-df["HmRun"].value_counts()
-
-df.loc[df["HmRun"] <= 5, "NEW_HM_RUN"] = "0_5"
-df.loc[(df["HmRun"] > 5) & (df["HmRun"] <= 15), "NEW_HM_RUN"] = "10_15"
-df.loc[(df["HmRun"] > 15) & (df["HmRun"] <= 20), "NEW_HM_RUN"] = "15_20"
-df.loc[(df["HmRun"] > 20) & (df["HmRun"] <= 25), "NEW_HM_RUN"] = "20_25"
-df.loc[(df["HmRun"] > 25) & (df["HmRun"] <= 30), "NEW_HM_RUN"] = "25_30"
-df.loc[(df["HmRun"] > 30) & (df["HmRun"] <= 35), "NEW_HM_RUN"] = "30_35"
+num_cols = [col for col in num_cols if col not in ["Salary"]]
+scaler = StandardScaler()
+df[num_cols] = scaler.fit_transform(df[num_cols])
+df.head()
 
 
-df["NEW_WALKS"] = df["Walks"] / df["CWalks"]
-df["NEW_AT_BAT"] =  df["AtBat"] / df["CAtBat"]
-df['NEW_HITS'] = df['Hits'] / df['CHits'] + df['Hits']
-df['NEW_RBI'] = df['RBI'] / df['CRBI']
+y = df["Salary"] 
+X= df.drop("Salary", axis=1)
 
-df.loc[df["NEW_SCORE_CONT_PER_YEAR"] > df["Runs"], "NEW_SCORE_PERFOMANCE"] = "above"
-df.loc[df["NEW_SCORE_CONT_PER_YEAR"] < df["Runs"], "NEW_SCORE_PERFOMANCE"] = "below"
+X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                    test_size=0.20,
+                                                    random_state=47)
+
+lin_reg_model = LinearRegression().fit(X_train, y_train)
+y_pred = lin_reg_model.predict(X_test)
+
+print("mean squared error",mean_squared_error(y_pred, y_test))
+print("root mean squared error",mean_squared_error(y_pred, y_test,  squared=False))
+print("R2 SCORE", r2_score(y_test, y_pred))
+
+# mean squared error 67736.38372146642
+# root mean squared error 260.26214423435925
+# R2 SCORE 0.48478760306166413
 
 
-# Replace infinite values with NaN, then handle missing values
-df.replace([np.inf, -np.inf], np.nan, inplace=True)
+### Feature Engineering ###
 
-# Check for NaNs
-print(df.isnull().sum())
+num_cols = [col for col in num_cols if col not in ["Salary"]]
+df[num_cols] = df[num_cols]+0.0000000001
 
-# Fill or remove any remaining NaNs
-df.fillna(df.median(), inplace=True)
+df["NEW_CHIT_ACCURACY_RATIO"] = 100 * df["CHits"] / df["CAtBat"]
 
+df["NEW_HIT_ACCURACY_RATIO_86"] = 100 * df["Hits"] / df["AtBat"]
+
+df["NEW_HITS"]  =df["Hits"] / df["CHits"] + df["Hits"]
+df["NEW_CRBI*CATBAT"] = df["CRBI"] * df["CAtBat"]
+
+df["NEW_Chits"] = df["CHits"] / df["Years"]
+df["NEW_CHmRun"] = df["CHmRun"] / df["Years"]
+df["NEW_CRuns"] = df["CRuns"] / df["Years"]
+
+df["NEW_DIFF_AtBat"] = df["AtBat"] / (df["CAtBat"] / df["Years"])
+df["NEW_DIFF_Hits"] = df["Hits"] / (df["CHits"] / df["Years"])
+df["NEW_DIFF_HmRun"] = df["HmRun"] / (df["CHmRun"] / df["Years"])
+df["NEW_DIFF_Runs"] = df["Runs"] / (df["CRuns"] / df["Years"])
+df["NEW_DIFF_RBI"] = df["RBI"] / (df["CRBI"] / df["Years"])
+df["NEW_DIFF_Walks"] = df["Walks"] / (df["CWalks"] / df["Years"])
+
+df.columns
+
+cat_cols, num_cols, cat_but_car = grab_cols(df)
 ## encoding 
 
 def one_hot_encoder(dataframe, categorical_cols, drop_first=False):
@@ -240,12 +275,11 @@ df = one_hot_encoder(df, categorical_cols=cat_cols, drop_first=True)
 df.head(3)
 df.isnull().sum()
 
-df["NEW_RBI"].fillna(df["NEW_RBI"].median(), inplace=True)
 ## scaling 
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Log, LogisticRegression, LinearRegression
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import cross_validate, learning_curve, train_test_split
 
 num_cols = [col for col in num_cols if col not in ["Salary"]]
@@ -254,6 +288,7 @@ df[num_cols] = scaler.fit_transform(df[num_cols])
 df.head()
 
 ### modelig
+df["Salary"] = df["Salary"]  / 1000
 y = df["Salary"]
 
 X = df.drop(["Salary"], axis=1)
@@ -266,15 +301,12 @@ lin_reg_model = LinearRegression().fit(X_train, y_train)
 
 y_pred = lin_reg_model.predict(X_test)
 
-from sklearn.metrics import mean_squared_error
-print(mean_squared_error(y_test, y_pred))
+print("mean squared error",mean_squared_error(y_pred, y_test))
+print("root mean squared error",mean_squared_error(y_pred, y_test,  squared=False))
+print("R2 SCORE", r2_score(y_test, y_pred))
+
+# mean squared error 5.985661085397567e-08
+# root mean squared error 0.0002446561073302191
+# R2 SCORE 0.5447222562472164
 
 
-from sklearn.metrics import mean_absolute_error
-print(mean_absolute_error(y_test, y_pred))
-
-from sklearn.metrics import r2_score
-print(r2_score(y_test, y_pred))
-
-
-print("root_mean_squared_error:", np.sqrt(mean_absolute_error(y_test, y_pred)))
