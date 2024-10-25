@@ -309,4 +309,3 @@ print("R2 SCORE", r2_score(y_test, y_pred))
 # root mean squared error 0.0002446561073302191
 # R2 SCORE 0.5447222562472164
 
-

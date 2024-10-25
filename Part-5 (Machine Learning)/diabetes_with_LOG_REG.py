@@ -11,7 +11,7 @@ from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder, OneHotEncoder, StandardScaler, RobustScaler
 
 ########################################################
-##### Diabete Prediction with Logistic Regression ######
+##### Diabetes Prediction with Logistic Regression ######
 ########################################################
 
 pd.set_option('display.max_columns',None)
