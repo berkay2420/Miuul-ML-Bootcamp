@@ -1,6 +1,3 @@
-import warnings
-from catboost import train
-from cv2 import ScoreMethod
 import pandas as pd
 import numpy as np
 import joblib
@@ -357,3 +354,14 @@ x = [0, 113, 23420, 2323, 431, 5225, 23, 0]
 predict_with_rules(x)
 # outcome = 1 (models prediction for this sample) 
 
+##################################
+#### SAVING AND LOADING MODEL ####
+##################################
+
+joblib.dump(cart_final, "cart_final.pkl")
+
+cart_model_from_disc = joblib.load("cart_final.pkl")
+
+x = [1, 3, 442, 545, 45, 2, 12, 7]
+
+cart_model_from_disc.predict(pd.DataFrame(x).T)
