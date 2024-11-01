@@ -147,11 +147,46 @@ catboost_best_grid = GridSearchCV(catboost_model,catboost_params, cv=5, n_jobs=-
 
 print(catboost_best_grid.best_params_)
 
-catboost_final = catboost_model.set_params(**catboost_best_grid.best_params, random_state=17).fit(X,y)
+catboost_final = catboost_model.set_params(**catboost_best_grid.best_params_, random_state=17).fit(X,y)
 
 cv_results = cross_validate(catboost_final, X, y, cv=10, scoring=["accuracy","f1","roc_auc"])
 cv_results["test_accuracy"].mean()
-
+#0.7630041011619959
 cv_results["test_f1"].mean()
-
+#0.6150887588694041
 cv_results["test_roc_auc"].mean()
+#0.8384814814814815
+
+
+#### Feature Importance ####
+
+def plot_importance(model, features, num=len(X), save=False):
+  feature_imp = pd.DataFrame({'Values': model.feature_importances_,
+                              'Feature': features.columns})
+  plt.figure(figsize=(10,10))
+  sns.set(font_scale=1)
+  sns.barplot(x="Values", y="Feature", data=feature_imp.sort_values(by="Values",
+                                                                  ascending=False)[0:num])
+  
+  plt.title("Features")
+  plt.tight_layout()
+  plt.show()
+  if save:
+    plt.savefig('importances29.png')
+
+[int(x) for x in np.linspace(start=200, stop=1500, num=10)]
+
+#### Random SearchCV ####
+
+rf_random_params = {"max_depth":np.random.randint(5,50,10),
+                    "max_features":[3,5,7,"auto","sqrt"],
+                    "min_samples_split":np.random.randint(2,50,20),
+                    "n_estimators": [int(x) for x in np.linspace(start=20,stop=1500,num=10)]}
+
+rf_random_search = RandomizedSearchCV(estimator=rf_model,
+                                      param_distributions=rf_random_params,
+                                      n_iter=100, #denenecek parametre sayısı
+                                      cv=3,
+                                      verbose=True,
+                                      random_state=42,
+                                      n_jobs=-1)
