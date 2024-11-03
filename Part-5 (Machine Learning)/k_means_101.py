@@ -60,3 +60,29 @@ elbow.fit(df)
 elbow.show()
 
 elbow.elbow_value_ #optimum k
+
+#### Final Model ####
+
+kmeans = KMeans(n_clusters=elbow.elbow_value_).fit(df)
+
+kmeans.n_clusters
+kmeans.cluster_centers_
+kmeans.labels_
+df[0:5]
+
+clusters = kmeans.labels_
+
+df = pd.read_csv("USArrests.csv", index_col=0)
+
+df["Cluster"] = clusters
+df.head(3)
+
+
+df["Cluster"].value_counts()
+
+df[df["Cluster"] ==1]
+df[df["Cluster"] ==5]
+
+df.groupby("Cluster").agg(["count","mean","median"])
+
+df.to_csv("clusters.csv")
